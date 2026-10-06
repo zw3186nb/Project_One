@@ -1,4 +1,6 @@
-const steps = ["GitHub", "IntelliJ", "Next.js", "Vercel"];
+import Link from "next/link";
+
+const steps = ["GitHub", "IntelliJ", "Next.js", "Supabase", "Vercel"];
 
 export default function Home() {
   return (
@@ -23,7 +25,7 @@ export default function Home() {
 
       <section className="relative flex flex-col items-center text-center">
         <p className="mb-8 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.2em] text-amber-300/90">
-          Week 1 · Live on Vercel
+          Week 2 · Connected to Supabase
         </p>
 
         <h1 className="bg-linear-to-b from-white to-white/55 bg-clip-text text-6xl font-semibold tracking-tight text-transparent sm:text-8xl">
@@ -31,8 +33,15 @@ export default function Home() {
         </h1>
 
         <p className="mt-6 max-w-md text-base text-white/60 sm:text-lg">
-          My first Next.js app: created, committed, pushed, and deployed.
+          My first Next.js app, now reading live rows from a Supabase database.
         </p>
+
+        <Link
+          href="/jokes"
+          className="mt-8 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-amber-300"
+        >
+          View the jokes list →
+        </Link>
 
         <ol className="mt-12 flex flex-wrap items-center justify-center gap-2 font-mono text-xs text-white/70">
           {steps.map((step, i) => (
