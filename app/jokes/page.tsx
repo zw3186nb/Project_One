@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { getSupabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 
 // Fetch from Supabase on every request, so the page always shows
 // what is in the table right now (not a snapshot taken at build time).
@@ -19,7 +18,8 @@ type Joke = {
 
 async function loadJokes(): Promise<{ jokes: Joke[]; error: string | null }> {
   try {
-    const { data, error } = await getSupabase()
+    const supabase = await createClient();
+    const { data, error } = await supabase
       .from("jokes")
       .select("id, setup, punchline, category, created_at")
       .order("id", { ascending: true });
@@ -35,16 +35,9 @@ export default async function JokesPage() {
   const { jokes, error } = await loadJokes();
 
   return (
-    <main className="min-h-screen bg-[#0b0d12] px-6 py-16 text-white sm:py-24">
+    <main className="flex-1 px-6 py-16 sm:py-20">
       <div className="mx-auto w-full max-w-3xl">
-        <Link
-          href="/"
-          className="font-mono text-xs uppercase tracking-[0.2em] text-white/50 transition hover:text-amber-300"
-        >
-          ← Home
-        </Link>
-
-        <header className="mt-8">
+        <header>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-amber-300/90">
             Week 2 · Rows from Supabase
           </p>

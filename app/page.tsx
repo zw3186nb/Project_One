@@ -1,10 +1,14 @@
 import Link from "next/link";
+import { getSession } from "@/lib/auth";
 
-const steps = ["GitHub", "IntelliJ", "Next.js", "Supabase", "Vercel"];
+const steps = ["GitHub", "IntelliJ", "Next.js", "Supabase", "Google sign-in", "Vercel"];
 
-export default function Home() {
+export default async function Home() {
+  const session = await getSession();
+  const firstName = session?.profile.first_name?.trim();
+
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0b0d12] px-6 text-white">
+    <main className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-20">
       {/* Faint grid that fades out toward the edges */}
       <div
         aria-hidden
@@ -25,7 +29,7 @@ export default function Home() {
 
       <section className="relative flex flex-col items-center text-center">
         <p className="mb-8 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.2em] text-amber-300/90">
-          Week 2 · Connected to Supabase
+          Week 3 · Sign in with Google
         </p>
 
         <h1 className="bg-linear-to-b from-white to-white/55 bg-clip-text text-6xl font-semibold tracking-tight text-transparent sm:text-8xl">
@@ -33,15 +37,34 @@ export default function Home() {
         </h1>
 
         <p className="mt-6 max-w-md text-base text-white/60 sm:text-lg">
-          My first Next.js app, now reading live rows from a Supabase database.
+          {session
+            ? `Welcome back${firstName ? `, ${firstName}` : ""}. The members area is unlocked.`
+            : "A Next.js app with live Supabase data. Sign in to unlock the members area."}
         </p>
 
-        <Link
-          href="/jokes"
-          className="mt-8 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-amber-300"
-        >
-          View the jokes list →
-        </Link>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          {session ? (
+            <Link
+              href="/members"
+              className="rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-amber-300"
+            >
+              Open the members area →
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-amber-300"
+            >
+              Sign in with Google →
+            </Link>
+          )}
+          <Link
+            href="/jokes"
+            className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white transition hover:border-white/35"
+          >
+            View the jokes list
+          </Link>
+        </div>
 
         <ol className="mt-12 flex flex-wrap items-center justify-center gap-2 font-mono text-xs text-white/70">
           {steps.map((step, i) => (
