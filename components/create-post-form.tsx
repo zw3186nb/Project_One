@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPost } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 
-const MAX_EDGE = 1600; // px. Phone photos are far bigger than a feed needs.
+const MAX_EDGE = 1280; // px. Phone photos are far bigger than a feed (or the AI) needs.
 const MAX_BYTES = 5 * 1024 * 1024;
 const NOTE_MAX = 200;
 
