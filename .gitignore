@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# OAuth client secret files downloaded from Google Cloud. Never commit these.
+client_secret*.json
