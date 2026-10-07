@@ -3,7 +3,7 @@ import { Avatar } from "@/components/avatar";
 import { avatarUrl, displayName, requireCompleteProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Members | Project One" };
+export const metadata = { title: "Members | Three Takes" };
 
 type Joke = { id: number; setup: string; punchline: string; category: string };
 
@@ -71,8 +71,14 @@ export default async function MembersPage() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="/profile"
+            href="/create"
             className="rounded-full bg-amber-400 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-amber-300"
+          >
+            Post a photo
+          </Link>
+          <Link
+            href="/profile"
+            className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-white/35"
           >
             Edit your profile
           </Link>

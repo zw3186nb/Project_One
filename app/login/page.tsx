@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { getSession, hasName } from "@/lib/auth";
 
-export const metadata = { title: "Sign in | Project One" };
+export const metadata = { title: "Sign in | Three Takes" };
 
 // Fixed messages, so nothing from the URL is ever shown as-is.
 const ERRORS: Record<string, string> = {

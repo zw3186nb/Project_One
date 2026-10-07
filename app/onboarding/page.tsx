@@ -3,7 +3,7 @@ import { completeOnboarding } from "@/app/actions";
 import { NameForm } from "@/components/name-form";
 import { hasName, requireUser } from "@/lib/auth";
 
-export const metadata = { title: "Welcome | Project One" };
+export const metadata = { title: "Welcome | Three Takes" };
 
 /** Shown after login when the profile has no first or last name yet. */
 export default async function OnboardingPage() {

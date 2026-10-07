@@ -3,7 +3,7 @@ import { AvatarUploader } from "@/components/avatar-uploader";
 import { NameForm } from "@/components/name-form";
 import { avatarUrl, displayName, requireCompleteProfile } from "@/lib/auth";
 
-export const metadata = { title: "Profile | Project One" };
+export const metadata = { title: "Profile | Three Takes" };
 
 export default async function ProfilePage() {
   const { user, profile } = await requireCompleteProfile();

@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Routes that only signed-in users may open. */
-const PROTECTED_PREFIXES = ["/members", "/profile", "/onboarding"];
+const PROTECTED_PREFIXES = ["/members", "/profile", "/onboarding", "/create"];
 
 function isProtected(pathname: string) {
   return PROTECTED_PREFIXES.some(

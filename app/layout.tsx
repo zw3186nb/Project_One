@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Project One",
-  description: "A Next.js app with Supabase data and Google sign-in.",
+  title: "Three Takes",
+  description: "Post a photo. AI captions it in three voices. Vote for the take that wins.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

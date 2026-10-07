@@ -1,82 +1,106 @@
 import Link from "next/link";
+import { PostCard } from "@/components/post-card";
+import { VoiceScoreboard } from "@/components/voice-scoreboard";
 import { getSession } from "@/lib/auth";
+import { todaysTheme } from "@/lib/daily";
+import { getFeed, getVoiceScores, parseSort, type Sort } from "@/lib/feed";
 
-const steps = ["GitHub", "IntelliJ", "Next.js", "Supabase", "Google sign-in", "Vercel"];
+const SORTS: { key: Sort; label: string }[] = [
+  { key: "hot", label: "Hot" },
+  { key: "new", label: "New" },
+  { key: "top", label: "Top" },
+];
 
-export default async function Home() {
+/** The feed: every photo, its three AI takes, and the votes. */
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const sort = parseSort((await searchParams).sort);
   const session = await getSession();
-  const firstName = session?.profile.first_name?.trim();
+  const viewerId = session?.user.id ?? null;
+  const theme = todaysTheme();
+
+  const [{ posts, error }, scores] = await Promise.all([getFeed(sort, viewerId), getVoiceScores()]);
 
   return (
-    <main className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-20">
-      {/* Faint grid that fades out toward the edges */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-          maskImage: "radial-gradient(ellipse at center, black 25%, transparent 70%)",
-          WebkitMaskImage: "radial-gradient(ellipse at center, black 25%, transparent 70%)",
-        }}
-      />
-      {/* Warm glow behind the headline */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-[60%] rounded-full bg-amber-500/20 blur-[120px]"
-      />
+    <main className="flex-1 px-6 py-10 sm:py-14">
+      <div className="mx-auto w-full max-w-5xl">
+        <header className="max-w-2xl">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-amber-300/90">
+            One photo · three voices · you pick the winner
+          </p>
+          <h1 className="mt-3 bg-linear-to-b from-white to-white/60 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
+            Three Takes
+          </h1>
+          <p className="mt-4 text-white/60">
+            Post a photo from campus or the city. AI captions it as a polite Midwesterner, a jaded
+            New Yorker, and someone who is far too online. Vote for the take that gets it right.
+          </p>
+        </header>
 
-      <section className="relative flex flex-col items-center text-center">
-        <p className="mb-8 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.2em] text-amber-300/90">
-          Week 3 · Sign in with Google
-        </p>
+        <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <section aria-label="Posts" className="order-2 lg:order-1">
+            <nav aria-label="Sort posts" className="flex items-center gap-2">
+              {SORTS.map(({ key, label }) => (
+                <Link
+                  key={key}
+                  href={key === "hot" ? "/" : `/?sort=${key}`}
+                  aria-current={sort === key ? "page" : undefined}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
+                    sort === key
+                      ? "border-white bg-white font-semibold text-black"
+                      : "border-white/15 text-white/65 hover:border-white/35 hover:text-white"
+                  }`}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
 
-        <h1 className="bg-linear-to-b from-white to-white/55 bg-clip-text text-6xl font-semibold tracking-tight text-transparent sm:text-8xl">
-          Hello World
-        </h1>
+            {error ? (
+              <div className="mt-6 rounded-xl border border-red-400/30 bg-red-500/10 p-5">
+                <p className="font-medium text-red-200">Could not load posts.</p>
+                <p className="mt-2 font-mono text-sm text-red-200/80">{error}</p>
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-white/15 p-10 text-center">
+                <p className="text-lg font-semibold">No posts yet.</p>
+                <p className="mt-2 text-sm text-white/55">
+                  Be the first. Today&apos;s prompt is {theme.title.toLowerCase()}.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col gap-6">
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} viewerId={viewerId} />
+                ))}
+              </div>
+            )}
+          </section>
 
-        <p className="mt-6 max-w-md text-base text-white/60 sm:text-lg">
-          {session
-            ? `Welcome back${firstName ? `, ${firstName}` : ""}. The members area is unlocked.`
-            : "A Next.js app with live Supabase data. Sign in to unlock the members area."}
-        </p>
+          <aside className="order-1 flex flex-col gap-5 lg:order-2">
+            <section className="rounded-2xl border border-amber-300/25 bg-amber-300/[0.06] p-5">
+              <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-amber-200/90">
+                {theme.weekday}&apos;s prompt
+              </h2>
+              <p className="mt-2 text-xl font-semibold">{theme.title}</p>
+              <p className="mt-1 text-sm text-white/60">{theme.hint}</p>
+              <Link
+                href={session ? "/create" : "/login"}
+                className="mt-4 inline-block rounded-full bg-amber-400 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-amber-300"
+              >
+                {session ? "Post a photo →" : "Sign in to post →"}
+              </Link>
+            </section>
 
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          {session ? (
-            <Link
-              href="/members"
-              className="rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-amber-300"
-            >
-              Open the members area →
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-amber-300"
-            >
-              Sign in with Google →
-            </Link>
-          )}
-          <Link
-            href="/jokes"
-            className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white transition hover:border-white/35"
-          >
-            View the jokes list
-          </Link>
+            <VoiceScoreboard scores={scores} />
+
+            {!session && (
+              <p className="px-1 text-xs text-white/40">
+                Anyone can read the feed. Sign in with Google to post photos and vote.
+              </p>
+            )}
+          </aside>
         </div>
-
-        <ol className="mt-12 flex flex-wrap items-center justify-center gap-2 font-mono text-xs text-white/70">
-          {steps.map((step, i) => (
-            <li key={step} className="flex items-center gap-2">
-              <span className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5">
-                {step}
-              </span>
-              {i < steps.length - 1 && <span className="text-white/30">→</span>}
-            </li>
-          ))}
-        </ol>
-      </section>
+      </div>
     </main>
   );
 }
