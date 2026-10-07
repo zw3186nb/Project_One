@@ -65,7 +65,9 @@ function parseCaptions(text: string): CaptionSet | null {
 async function readError(response: Response) {
   try {
     const body = (await response.json()) as { error?: { message?: string } };
-    return body.error?.message?.slice(0, 200) ?? response.statusText;
+    // Drop the account identifier some providers include, then keep it short.
+    const message = body.error?.message?.replace(/ in organization `[^`]*`/g, "");
+    return message?.slice(0, 300) ?? response.statusText;
   } catch {
     return response.statusText;
   }
@@ -132,36 +134,55 @@ async function askGemini(apiKey: string, model: string, userPrompt: string, imag
   return { captions, model };
 }
 
+/**
+ * Groq's free tier allows 1,000 output tokens per minute for this model, and
+ * rejects any request whose reply limit is above that. Three short captions
+ * need well under 200 tokens, so 300 leaves room for about three posts a minute.
+ */
+const GROQ_MAX_OUTPUT_TOKENS = 300;
+
 async function askGroq(apiKey: string, model: string, userPrompt: string, image: InlineImage): Promise<Attempt> {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      temperature: 1,
-      max_completion_tokens: 1024,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: userPrompt },
-            {
-              type: "image_url",
-              image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
-            },
-          ],
-        },
-      ],
-    }),
-    signal: AbortSignal.timeout(40_000),
-  });
+  const send = (extra: Record<string, string>) =>
+    fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        temperature: 1,
+        max_completion_tokens: GROQ_MAX_OUTPUT_TOKENS,
+        response_format: { type: "json_object" },
+        ...extra,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: userPrompt },
+              {
+                type: "image_url",
+                image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
+              },
+            ],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(40_000),
+    });
+
+  // Skip the model's "thinking" step: captions do not need it, and thinking
+  // would eat the small output budget. If a model rejects these options,
+  // ask again without them.
+  let response = await send({ reasoning_effort: "none", reasoning_format: "hidden" });
+  if (response.status === 400) response = await send({});
 
   if (!response.ok) {
+    const detail = await readError(response);
     return {
-      error: `Groq (${model}) returned ${response.status}: ${await readError(response)}`,
-      retryable: [404, 429, 500, 503].includes(response.status),
+      error:
+        response.status === 429
+          ? `The AI is at its free-tier limit right now. Wait a minute and try again. (${detail})`
+          : `Groq (${model}) returned ${response.status}: ${detail}`,
+      retryable: [404, 500, 503].includes(response.status),
     };
   }
 
