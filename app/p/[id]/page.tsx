@@ -1,10 +1,37 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PostCard } from "@/components/post-card";
 import { getSession } from "@/lib/auth";
-import { getPost } from "@/lib/feed";
+import { bestCaption, getPost } from "@/lib/feed";
+import { voiceInfo } from "@/lib/voices";
 
-export const metadata = { title: "Post | Three Takes" };
+/**
+ * Title and description for link previews. The preview picture itself comes
+ * from opengraph-image.tsx in this folder.
+ */
+export async function generateMetadata({ params }: PageProps<"/p/[id]">): Promise<Metadata> {
+  const { id } = await params;
+  const post = Number.isInteger(Number(id)) ? await getPost(Number(id), null) : null;
+  if (!post) return { title: "Post | Three Takes" };
+
+  const top = bestCaption(post);
+  const title = top ? `"${top.content}"` : "A photo on Three Takes";
+  const description = [
+    post.ai_location && `📍 ${post.ai_location}.`,
+    "One photo, three AI takes (Midwest Nice, NYC Local, Chronically Online). Vote for the funniest.",
+    top && `This one is from ${voiceInfo(top.voice).label}.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    title: `${title} · Three Takes`,
+    description,
+    openGraph: { title, description, type: "article", siteName: "Three Takes" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 /** A single post on its own page, so it can be shared with a link. */
 export default async function PostPage({ params }: PageProps<"/p/[id]">) {

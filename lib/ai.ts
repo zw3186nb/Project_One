@@ -12,40 +12,57 @@ import { VOICE_KEYS, type VoiceKey } from "@/lib/voices";
 
 export type CaptionSet = Record<VoiceKey, string>;
 
+/** What the AI saw in the photo before writing the jokes. */
+export type SceneReading = { location: string; scene: string; funniestDetail: string };
+
 export type GenerationResult =
-  | { ok: true; captions: CaptionSet; prompt: string; model: string }
+  | { ok: true; captions: CaptionSet; reading: SceneReading; prompt: string; model: string }
   | { ok: false; message: string };
 
-const SYSTEM_PROMPT = `You write short, funny captions for photos posted by Columbia University undergrads living in New York City.
+const SYSTEM_PROMPT = `You are the comedy writer for Three Takes, a photo humor app for Columbia University undergrads in New York City. A student uploads a photo and you write three captions about it, each in a different voice. Students vote for the funniest one, so every caption has to earn a laugh.
 
-For the photo, write exactly three captions, one in each voice:
+STEP 1: READ THE PHOTO. Fill in these fields first.
+- location: Where this is, as specifically as the photo supports. Use visible clues: signs, station names, architecture, logos, food, weather. Columbia and Morningside Heights places include Low Library and its steps, Butler Library, the Alma Mater statue, College Walk, John Jay and Ferris Booth dining halls, the 116th St-Columbia University station on the 1 train, Riverside Park, Broadway bodegas and the Hungarian Pastry Shop. If you are not sure, name a general place ("a dorm room", "a subway car"). Never claim a specific place you see no evidence for.
+- scene: One sentence about who is in the photo and what is happening. Describe people only by what they are doing, wearing or holding. Never name or identify a real person, and never guess who someone is from their face.
+- funniest_detail: The single most specific, absurd or relatable detail in the photo. The jokes are built on this.
 
-1. midwest_nice: A polite Midwesterner who just moved to New York. Relentlessly upbeat, understated, a little apologetic. Might say "ope" or "you betcha". Finds the bright side of everything, even when clearly rattled.
-2. nyc_local: A jaded lifelong New Yorker. Deadpan and unimpressed. Has seen worse on the 1 train. Treats chaos as a normal Tuesday.
-3. chronically_online: Someone who spends far too much time on the internet. Lowercase, meme-brained, self-aware, uses current internet slang.
+STEP 2: WRITE THREE CAPTIONS about that place and detail.
+1. midwest_nice: A sweet Midwesterner in their first year in New York. Comedy engine: relentless politeness and understatement in the face of chaos, plus comparisons to home (Target, Culver's, casseroles, "back in Ohio"). Sometimes says "ope" or "oh my gosh".
+2. nyc_local: A jaded lifelong New Yorker. Comedy engine: deadpan one-upmanship, and cynicism about the MTA, rent and tourists. Nothing impresses them; they saw worse this morning.
+3. chronically_online: A student who lives on TikTok and in group chats. Comedy engine: current internet formats such as "pov:", "the way...", "not the...", "it's giving...", "me when...", "nobody: / me:". All lowercase.
 
-Rules:
-- Each caption is one or two sentences and at most 140 characters.
-- Base the joke on what is actually visible in the photo. Be specific.
-- Keep it PG-13 and kind. Joke about the situation, never about a person's body, race, gender, religion, disability or identity. Do not guess who anyone is.
-- No hashtags. At most one emoji per caption.
-- Reply with JSON only, in exactly this shape: {"midwest_nice": "...", "nyc_local": "...", "chronically_online": "..."}`;
+What makes a caption funny here:
+- It is about THIS photo: it names or clearly points at the location or the funniest detail. A caption that would work on any photo is a failure.
+- The punchline comes last, as a twist or an unexpected comparison.
+- Specific nouns beat adjectives. Exaggerate one true thing.
+- The three captions take three different angles, not the same joke three times.
+- Never explain the joke. No hashtags. At most one emoji per caption. At most 140 characters per caption.
+- Keep it PG-13 and kind: joke about the situation, never about anyone's body, race, gender, religion, disability or identity.
+
+EXAMPLE, for a different photo (a dining hall tray with one lettuce leaf and four cookies):
+{"location": "John Jay Dining Hall", "scene": "A tray on a dining hall table holds a single lettuce leaf next to four chocolate chip cookies.", "funniest_detail": "One lone lettuce leaf pretending to balance out four cookies", "midwest_nice": "Ope, look at that, a salad! Back home that's one more leaf than we'd put in a casserole.", "nyc_local": "One leaf of lettuce in this city is called a side salad and costs $14. Eat the cookies.", "chronically_online": "the lettuce is there so i can tell my mom i'm eating vegetables"}
+
+Reply with JSON only, using exactly these keys: location, scene, funniest_detail, midwest_nice, nyc_local, chronically_online.`;
 
 function buildUserPrompt(note: string | null) {
   const context = note
     ? `The poster's note about the photo: "${note}"`
     : "The poster added no note.";
-  return `${context}\n\nWrite the three captions for the attached photo.`;
+  return `${context}\n\nRead the attached photo, then write the three captions.`;
 }
 
-/** Pulls the three captions out of the model's reply, tolerating code fences and stray text. */
-function parseCaptions(text: string): CaptionSet | null {
+const OUTPUT_KEYS = ["location", "scene", "funniest_detail", ...VOICE_KEYS];
+
+type Parsed = { captions: CaptionSet; reading: SceneReading };
+
+/** Pulls the scene reading and the three captions out of the model's reply. */
+function parseReply(text: string): Parsed | null {
   const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, "");
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start === -1 || end <= start) return null;
 
-  let parsed: unknown;
+  let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(cleaned.slice(start, end + 1));
   } catch {
@@ -53,13 +70,26 @@ function parseCaptions(text: string): CaptionSet | null {
   }
   if (typeof parsed !== "object" || parsed === null) return null;
 
+  const field = (key: string, max: number) => {
+    const value = parsed[key];
+    return typeof value === "string" ? value.trim().slice(0, max) : "";
+  };
+
   const captions = {} as CaptionSet;
   for (const key of VOICE_KEYS) {
-    const value = (parsed as Record<string, unknown>)[key];
-    if (typeof value !== "string" || !value.trim()) return null;
-    captions[key] = value.trim().slice(0, 300);
+    const caption = field(key, 300);
+    if (!caption) return null;
+    captions[key] = caption;
   }
-  return captions;
+
+  return {
+    captions,
+    reading: {
+      location: field("location", 120),
+      scene: field("scene", 250),
+      funniestDetail: field("funniest_detail", 140),
+    },
+  };
 }
 
 async function readError(response: Response) {
@@ -73,7 +103,7 @@ async function readError(response: Response) {
   }
 }
 
-type Attempt = { captions: CaptionSet; model: string } | { error: string; retryable: boolean };
+type Attempt = (Parsed & { model: string }) | { error: string; retryable: boolean };
 
 async function askGemini(apiKey: string, model: string, userPrompt: string, image: InlineImage): Promise<Attempt> {
   const response = await fetch(
@@ -98,8 +128,9 @@ async function askGemini(apiKey: string, model: string, userPrompt: string, imag
           responseMimeType: "application/json",
           responseSchema: {
             type: "OBJECT",
-            properties: Object.fromEntries(VOICE_KEYS.map((key) => [key, { type: "STRING" }])),
-            required: VOICE_KEYS,
+            properties: Object.fromEntries(OUTPUT_KEYS.map((key) => [key, { type: "STRING" }])),
+            required: OUTPUT_KEYS,
+            propertyOrdering: OUTPUT_KEYS, // read the photo first, then write the jokes
           },
         },
       }),
@@ -127,19 +158,20 @@ async function askGemini(apiKey: string, model: string, userPrompt: string, imag
     .filter((part) => !part.thought && typeof part.text === "string")
     .map((part) => part.text)
     .join("");
-  const captions = parseCaptions(text);
-  if (!captions) {
+  const parsed = parseReply(text);
+  if (!parsed) {
     return { error: `Gemini (${model}) replied in an unexpected format.`, retryable: true };
   }
-  return { captions, model };
+  return { ...parsed, model };
 }
 
 /**
  * Groq's free tier allows 1,000 output tokens per minute for this model, and
- * rejects any request whose reply limit is above that. Three short captions
- * need well under 200 tokens, so 300 leaves room for about three posts a minute.
+ * rejects any request whose reply limit is above that. The scene reading plus
+ * three short captions need about 250 tokens; 450 leaves headroom and still
+ * allows two posts a minute.
  */
-const GROQ_MAX_OUTPUT_TOKENS = 300;
+const GROQ_MAX_OUTPUT_TOKENS = 450;
 
 async function askGroq(apiKey: string, model: string, userPrompt: string, image: InlineImage): Promise<Attempt> {
   const send = (extra: Record<string, string>) =>
@@ -187,11 +219,11 @@ async function askGroq(apiKey: string, model: string, userPrompt: string, image:
   }
 
   const body = (await response.json()) as { choices?: { message?: { content?: string } }[] };
-  const captions = parseCaptions(body.choices?.[0]?.message?.content ?? "");
-  if (!captions) {
+  const parsed = parseReply(body.choices?.[0]?.message?.content ?? "");
+  if (!parsed) {
     return { error: `Groq (${model}) replied in an unexpected format.`, retryable: true };
   }
-  return { captions, model };
+  return { ...parsed, model };
 }
 
 type InlineImage = { base64: string; mimeType: string };
@@ -228,7 +260,7 @@ export async function generateCaptions(image: InlineImage, note: string | null):
     try {
       const result = await attempt();
       if ("captions" in result) {
-        return { ok: true, captions: result.captions, prompt, model: result.model };
+        return { ok: true, captions: result.captions, reading: result.reading, prompt, model: result.model };
       }
       lastError = result.error;
       if (!result.retryable) break;

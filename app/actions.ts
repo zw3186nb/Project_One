@@ -156,9 +156,20 @@ export async function createPost(input: { path: string; note: string }): Promise
     return { ok: false, message: generation.message };
   }
 
+  const { reading } = generation;
+  const scene = [reading.scene, reading.funniestDetail && `Funniest detail: ${reading.funniestDetail}`]
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 400);
+
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .insert({ image_path: path, note })
+    .insert({
+      image_path: path,
+      note,
+      ai_location: reading.location || null,
+      ai_scene: scene || null,
+    })
     .select("id")
     .single();
   if (postError || !post) {
@@ -188,18 +199,25 @@ export type VoteResult =
   | { ok: true; upvotes: number; downvotes: number; myVote: number }
   | { ok: false; message: string };
 
+/** Where each kind of vote lives in the database. */
+const VOTE_TABLES = {
+  caption: { votes: "caption_votes", key: "caption_id", target: "captions" },
+  joke: { votes: "joke_votes", key: "joke_id", target: "jokes" },
+} as const;
+
 /**
- * Records the signed-in user's vote on a caption.
+ * Records the signed-in user's vote on a caption or a joke.
  *   value  1 -> upvote, -1 -> downvote, 0 -> take the vote back
- * A first vote INSERTs a new row into caption_votes. Changing your mind
+ * A first vote INSERTs a new row into the votes table. Changing your mind
  * UPDATEs that row; taking it back DELETEs it. A database trigger keeps the
- * caption's counters in sync, and Row Level Security guarantees a user can
+ * up/down counters in sync, and Row Level Security guarantees a user can
  * only ever touch their own vote.
  */
-export async function castVote(captionId: number, value: number): Promise<VoteResult> {
-  if (!Number.isInteger(captionId) || ![1, -1, 0].includes(value)) {
+async function recordVote(kind: keyof typeof VOTE_TABLES, id: number, value: number): Promise<VoteResult> {
+  if (!Number.isInteger(id) || ![1, -1, 0].includes(value)) {
     return { ok: false, message: "Invalid vote." };
   }
+  const table = VOTE_TABLES[kind];
 
   const supabase = await createClient();
   const {
@@ -209,22 +227,20 @@ export async function castVote(captionId: number, value: number): Promise<VoteRe
 
   if (value === 0) {
     const { error } = await supabase
-      .from("caption_votes")
+      .from(table.votes)
       .delete()
-      .eq("caption_id", captionId)
+      .eq(table.key, id)
       .eq("user_id", user.id);
     if (error) return { ok: false, message: error.message };
   } else {
-    const { error } = await supabase
-      .from("caption_votes")
-      .insert({ caption_id: captionId, vote: value });
+    const { error } = await supabase.from(table.votes).insert({ [table.key]: id, vote: value });
 
     if (error?.code === "23505") {
-      // Already voted on this caption: switch the existing vote instead.
+      // Already voted on this one: switch the existing vote instead.
       const { error: updateError } = await supabase
-        .from("caption_votes")
+        .from(table.votes)
         .update({ vote: value })
-        .eq("caption_id", captionId)
+        .eq(table.key, id)
         .eq("user_id", user.id);
       if (updateError) return { ok: false, message: updateError.message };
     } else if (error) {
@@ -232,14 +248,24 @@ export async function castVote(captionId: number, value: number): Promise<VoteRe
     }
   }
 
-  const { data: caption } = await supabase
-    .from("captions")
+  const { data: counts } = await supabase
+    .from(table.target)
     .select("upvotes, downvotes")
-    .eq("id", captionId)
+    .eq("id", id)
     .maybeSingle();
-  if (!caption) return { ok: false, message: "That caption no longer exists." };
+  if (!counts) return { ok: false, message: "That item no longer exists." };
 
-  return { ok: true, upvotes: caption.upvotes, downvotes: caption.downvotes, myVote: value };
+  return { ok: true, upvotes: counts.upvotes, downvotes: counts.downvotes, myVote: value };
+}
+
+/** Vote on one AI caption of a photo post. */
+export async function castVote(captionId: number, value: number): Promise<VoteResult> {
+  return recordVote("caption", captionId, value);
+}
+
+/** Vote on one joke in the jokes list. */
+export async function castJokeVote(jokeId: number, value: number): Promise<VoteResult> {
+  return recordVote("joke", jokeId, value);
 }
 
 /** Deletes one of the signed-in user's own posts, its captions, votes and photo. */

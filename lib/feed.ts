@@ -19,6 +19,10 @@ export type Post = {
   author_name: string;
   image_path: string;
   note: string | null;
+  /** Where the AI thinks the photo was taken. */
+  ai_location: string | null;
+  /** What the AI saw in the photo before writing the jokes. */
+  ai_scene: string | null;
   created_at: string;
   captions: Caption[];
 };
@@ -30,7 +34,7 @@ export function parseSort(value: unknown): Sort {
 }
 
 const POST_COLUMNS =
-  "id, user_id, author_name, image_path, note, created_at, captions(id, voice, content, upvotes, downvotes, prompt, model)";
+  "id, user_id, author_name, image_path, note, ai_location, ai_scene, created_at, captions(id, voice, content, upvotes, downvotes, prompt, model)";
 
 type Row = Omit<Post, "captions"> & { captions: Omit<Caption, "myVote">[] };
 
@@ -129,4 +133,21 @@ export function timeAgo(iso: string, now: number = Date.now()) {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
+}
+
+/** The caption with the most net votes (ties go to the first voice). */
+export function bestCaption(post: Post): Caption | null {
+  let best: Caption | null = null;
+  for (const caption of post.captions) {
+    if (!best || caption.upvotes - caption.downvotes > best.upvotes - best.downvotes) best = caption;
+  }
+  return best;
+}
+
+/** Removes emoji, which the share-image renderer cannot draw offline. */
+export function stripEmoji(text: string) {
+  return text
+    .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }

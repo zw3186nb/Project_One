@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { castVote } from "@/app/actions";
+import { castJokeVote, castVote } from "@/app/actions";
 
 type VoteButtonsProps = {
+  /** What is being voted on. Defaults to a photo caption. */
+  kind?: "caption" | "joke";
+  /** The caption's or joke's id. */
   captionId: number;
   upvotes: number;
   downvotes: number;
@@ -23,7 +26,7 @@ const downOn = "border-rose-300 bg-rose-300 text-black";
  * Up / down vote for one caption. The numbers change the instant you click
  * (optimistic update), then settle to whatever the database reports back.
  */
-export function VoteButtons({ captionId, upvotes, downvotes, myVote, signedIn }: VoteButtonsProps) {
+export function VoteButtons({ kind = "caption", captionId, upvotes, downvotes, myVote, signedIn }: VoteButtonsProps) {
   const [state, setState] = useState({ upvotes, downvotes, myVote });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -57,10 +60,10 @@ export function VoteButtons({ captionId, upvotes, downvotes, myVote, signedIn }:
     });
 
     startTransition(async () => {
-      const result = await castVote(captionId, next);
+      const result = await (kind === "joke" ? castJokeVote : castVote)(captionId, next);
       if (result.ok) {
         setState({ upvotes: result.upvotes, downvotes: result.downvotes, myVote: result.myVote });
-        router.refresh(); // update the "Leading" badge and the scoreboard
+        router.refresh(); // update badges, the scoreboard and the sort order
       } else {
         setState(previous);
         setError(result.message);

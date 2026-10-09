@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { photoUrl, timeAgo, type Post } from "@/lib/feed";
+import { bestCaption, photoUrl, timeAgo, type Post } from "@/lib/feed";
 import { voiceInfo } from "@/lib/voices";
 import { DeletePostButton } from "./delete-post-button";
+import { ShareMenu } from "./share-menu";
 import { VoteButtons } from "./vote-buttons";
 
 type PostCardProps = {
@@ -20,6 +21,10 @@ export function PostCard({ post, viewerId }: PostCardProps) {
       ? post.captions[nets.indexOf(best)].id
       : null;
   const generation = post.captions[0];
+  const top = bestCaption(post);
+  const shareText = top
+    ? `"${top.content}" (${voiceInfo(top.voice).label}) · Three Takes: vote for the funniest caption`
+    : "Three Takes: vote for the funniest caption";
 
   return (
     <article
@@ -38,16 +43,22 @@ export function PostCard({ post, viewerId }: PostCardProps) {
       </Link>
 
       <div className="p-5 sm:p-6">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/45">
-          <span className="font-medium text-white/75">{post.author_name}</span>
-          <Link href={`/p/${post.id}`} className="hover:text-white/80">
-            {timeAgo(post.created_at)}
-          </Link>
-          {viewerId === post.user_id && (
-            <span className="ml-auto">
-              <DeletePostButton postId={post.id} />
-            </span>
-          )}
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/45">
+            <span className="font-medium text-white/75">{post.author_name}</span>
+            <Link href={`/p/${post.id}`} className="hover:text-white/80">
+              {timeAgo(post.created_at)}
+            </Link>
+            {post.ai_location && (
+              <span title="Where the AI thinks this photo was taken" className="text-white/60">
+                📍 {post.ai_location}
+              </span>
+            )}
+          </div>
+          <div className="flex items-start gap-4">
+            {viewerId === post.user_id && <DeletePostButton postId={post.id} />}
+            <ShareMenu postId={post.id} text={shareText} />
+          </div>
         </div>
         {post.note && <p className="mt-2 text-sm text-white/65">“{post.note}”</p>}
 
@@ -95,6 +106,11 @@ export function PostCard({ post, viewerId }: PostCardProps) {
             <summary className="cursor-pointer select-none hover:text-white/75">
               How these were written (AI prompt)
             </summary>
+            {post.ai_scene && (
+              <p className="mt-2">
+                What the AI saw: <span className="text-white/70">{post.ai_scene}</span>
+              </p>
+            )}
             <p className="mt-2">
               Model: <span className="font-mono text-white/70">{generation.model}</span>
             </p>
