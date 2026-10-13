@@ -38,7 +38,7 @@ export async function SiteHeader() {
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0b0d12]/85 backdrop-blur">
       <nav className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4 sm:gap-5 sm:px-6">
         <Logo />
-        <div className="min-w-0 overflow-x-auto">
+        <div className="min-w-0">
           <NavLinks links={links} />
         </div>
 
