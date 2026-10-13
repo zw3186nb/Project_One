@@ -44,7 +44,7 @@ export default async function PostPage({ params }: PageProps<"/p/[id]">) {
   if (!post) notFound();
 
   return (
-    <main className="flex-1 px-6 py-10 sm:py-14">
+    <main className="flex-1 px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto w-full max-w-2xl">
         <Link
           href="/"
@@ -54,6 +54,15 @@ export default async function PostPage({ params }: PageProps<"/p/[id]">) {
         </Link>
         <div className="mt-6">
           <PostCard post={post} viewerId={session?.user.id ?? null} />
+        </div>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <p className="text-sm text-white/70">Got opinions? There are more photos waiting.</p>
+          <Link
+            href="/play"
+            className="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-black transition hover:bg-amber-300"
+          >
+            Judge more →
+          </Link>
         </div>
         {!session && (
           <p className="mt-5 text-sm text-white/55">

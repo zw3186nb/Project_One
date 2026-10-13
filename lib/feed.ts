@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { VOICE_KEYS, type VoiceKey } from "@/lib/voices";
 
+export { photoUrl } from "@/lib/photo-url";
+
 export type Caption = {
   id: number;
   voice: VoiceKey;
@@ -120,9 +122,6 @@ export async function getVoiceScores(): Promise<VoiceScore[]> {
   });
 }
 
-export function photoUrl(path: string) {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${path}`;
-}
 
 export function timeAgo(iso: string, now: number = Date.now()) {
   const minutes = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
@@ -150,4 +149,46 @@ export function stripEmoji(text: string) {
     .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}]/gu, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+/** Every post by one person, newest first (for their profile). */
+export async function getPostsByUser(userId: string, viewerId: string | null): Promise<Post[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("posts")
+    .select(POST_COLUMNS)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(60);
+  return finish((data ?? []) as Row[], viewerId);
+}
+
+/** Has this viewer voted on any of the post's captions yet? */
+export function hasVotedOn(post: Post) {
+  return post.captions.some((c) => c.myVote !== 0);
+}
+
+/** Up and down votes cast on a post's captions, all together. */
+export function postVoteCount(post: Post) {
+  return totalVotes(post);
+}
+
+/** Each caption's share of the post's upvotes, as whole percentages. */
+export function upvoteShares(post: Post): Map<number, number> {
+  const total = post.captions.reduce((sum, c) => sum + c.upvotes, 0);
+  return new Map(post.captions.map((c) => [c.id, total ? Math.round((c.upvotes / total) * 100) : 0]));
+}
+
+export type Photographer = { userId: string; name: string; posts: number; net: number };
+
+/** People whose photos earn the most net votes across their captions. */
+export function topPhotographers(posts: Post[], limit = 5): Photographer[] {
+  const byUser = new Map<string, Photographer>();
+  for (const post of posts) {
+    const entry = byUser.get(post.user_id) ?? { userId: post.user_id, name: post.author_name, posts: 0, net: 0 };
+    entry.posts += 1;
+    entry.net += netVotes(post);
+    byUser.set(post.user_id, entry);
+  }
+  return [...byUser.values()].sort((a, b) => b.net - a.net || b.posts - a.posts).slice(0, limit);
 }

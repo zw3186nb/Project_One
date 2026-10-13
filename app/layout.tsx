@@ -34,6 +34,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <SiteHeader />
         </Suspense>
         {children}
+        <footer className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/35 sm:px-6">
+          Three Takes · captions written by AI, judged by people · a Columbia “Designing for GenAI”
+          project
+        </footer>
       </body>
     </html>
   );

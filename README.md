@@ -31,6 +31,27 @@ weekends. The three caption voices are the three sides of Sam:
 - **Transparent AI.** Every caption stores the exact prompt and model that
   produced it; each post has a "How these were written" section.
 
+## Iteration log
+
+- **Week 4 feedback (more funny, vote on jokes, shareable).** The AI first
+  reads the photo (where, what's happening, the funniest detail), then writes
+  three takes about that scene. Jokes can be voted on. Every post can be shared
+  to WhatsApp, X, Facebook or as an Instagram story image, with link previews.
+- **Week 5 (visual design, usability, "would I use this twice?").**
+  - **Judge mode (`/play`)**: one photo at a time, tap the funniest take, then
+    see how the crowd voted and whether you agreed. Only shows photos you
+    haven't judged; keyboard shortcuts 1/2/3 and Enter.
+  - **Judge first, then see results**: vote splits appear on a post only after
+    you vote, so the crowd doesn't sway you.
+  - **Clearer home page**: one main action ("Judge N new photos"), a three-step
+    explainer for new visitors, top photographers leaderboard, sticky header
+    with the current section highlighted.
+  - **Profile**: your photos, how each is doing, and totals.
+  - **Posting**: drag and drop, and a step-by-step progress list while the AI
+    reads the photo and writes.
+  - Photos of any shape sit on a blurred backdrop with a location label;
+    loading skeletons; the intended font (Geist) is actually applied now.
+
 ## How it works
 
 1. The browser shrinks the photo and uploads it to Supabase Storage.

@@ -41,6 +41,15 @@ export function CreatePostForm({ userId, themeTitle, themeHint }: CreatePostForm
   const [note, setNote] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const busy = stage !== "idle";
+  // While the AI works, step the progress list from "reading" to "writing".
+  const [writing, setWriting] = useState(false);
+  useEffect(() => {
+    if (stage !== "generating") return;
+    const timer = setTimeout(() => setWriting(true), 4000);
+    return () => clearTimeout(timer);
+  }, [stage]);
 
   // Free the preview image's memory when it changes or the form goes away.
   useEffect(() => {
@@ -52,7 +61,17 @@ export function CreatePostForm({ userId, themeTitle, themeHint }: CreatePostForm
   async function onFileChosen(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (file) await handleFile(file);
+  }
+
+  async function onDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setDragging(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file && !busy) await handleFile(file);
+  }
+
+  async function handleFile(file: File) {
     setError(null);
 
     try {
@@ -80,6 +99,7 @@ export function CreatePostForm({ userId, themeTitle, themeHint }: CreatePostForm
         .upload(path, photo, { contentType: "image/jpeg", cacheControl: "31536000" });
       if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
+      setWriting(false);
       setStage("generating");
       // On success the server redirects to the new post, so this only
       // returns when something went wrong.
@@ -91,17 +111,9 @@ export function CreatePostForm({ userId, themeTitle, themeHint }: CreatePostForm
     }
   }
 
-  const busy = stage !== "idle";
-
   return (
     <div className="flex flex-col gap-5">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        onChange={onFileChosen}
-        hidden
-      />
+      <input ref={inputRef} type="file" accept="image/*" onChange={onFileChosen} hidden />
 
       {preview ? (
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/40">
@@ -113,9 +125,21 @@ export function CreatePostForm({ userId, themeTitle, themeHint }: CreatePostForm
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex min-h-56 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/20 bg-white/[0.02] px-6 py-10 text-center transition hover:border-amber-300/50 hover:bg-white/[0.04]"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+          className={`flex min-h-56 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-6 py-10 text-center transition hover:border-amber-300/50 hover:bg-white/[0.04] ${
+            dragging ? "border-amber-300 bg-amber-300/[0.06]" : "border-white/20 bg-white/[0.02]"
+          }`}
         >
+          <span aria-hidden className="text-3xl">
+            📷
+          </span>
           <span className="text-base font-semibold text-white">Choose a photo</span>
+          <span className="text-xs text-white/40">or drag one here · JPG, PNG, HEIC from your phone</span>
           <span className="max-w-xs text-sm text-white/50">
             Today&apos;s prompt is <span className="text-amber-200">{themeTitle}</span>. {themeHint}
           </span>
@@ -158,12 +182,41 @@ export function CreatePostForm({ userId, themeTitle, themeHint }: CreatePostForm
               ? "Writing three takes…"
               : "Get three takes"}
         </button>
-        {stage === "generating" && (
-          <p role="status" className="text-sm text-white/55">
-            The AI is looking at your photo. This takes a few seconds.
-          </p>
-        )}
       </div>
+
+      {busy && (
+        <ol
+          role="status"
+          aria-live="polite"
+          className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm"
+        >
+          {[
+            { label: "Uploading your photo", done: stage === "generating", active: stage === "uploading" },
+            {
+              label: "AI is reading the scene: where, who, what's funny",
+              done: writing,
+              active: stage === "generating" && !writing,
+            },
+            { label: "Writing three takes", done: false, active: writing },
+          ].map((step) => (
+            <li
+              key={step.label}
+              className={`flex items-center gap-2.5 ${step.active ? "text-white" : step.done ? "text-white/55" : "text-white/30"}`}
+            >
+              <span aria-hidden className="flex h-5 w-5 items-center justify-center">
+                {step.done ? (
+                  "✓"
+                ) : step.active ? (
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-300 border-t-transparent" />
+                ) : (
+                  "·"
+                )}
+              </span>
+              {step.label}
+            </li>
+          ))}
+        </ol>
+      )}
 
       {error && (
         <p
