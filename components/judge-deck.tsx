@@ -47,7 +47,8 @@ export function JudgeDeck({ posts, signedIn }: { posts: DeckPost[]; signedIn: bo
           ? post.captions.map((c) => (c.id === captionId ? { ...c, upvotes: c.upvotes + 1 } : c))
           : post.captions;
         const best = Math.max(...captions.map((c) => c.upvotes));
-        const agreed = captions.find((c) => c.id === captionId)!.upvotes === best;
+        // Nobody has voted yet (a visitor on a fresh photo): nothing to agree with.
+        const agreed = best > 0 && captions.find((c) => c.id === captionId)!.upvotes === best;
         setDeck((d) => d.map((p, i) => (i === index ? { ...p, captions } : p)));
         setTally((t) => ({ judged: t.judged + 1, agreed: t.agreed + (agreed ? 1 : 0) }));
         setPhase({ kind: "result", pick: captionId, counted });
