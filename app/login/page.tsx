@@ -12,7 +12,7 @@ const ERRORS: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const session = await getSession();
-  if (session) redirect(hasName(session.profile) ? "/members" : "/onboarding");
+  if (session) redirect(hasName(session.profile) ? "/" : "/onboarding");
 
   const { error } = await searchParams;
   const message = typeof error === "string" ? ERRORS[error] : undefined;
@@ -20,12 +20,10 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-8">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-amber-300/90">
-          Members only
-        </p>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-amber-300/90">Welcome</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">Sign in</h1>
         <p className="mt-2 text-sm text-white/60">
-          Use your Google account to open the members area and your profile.
+          Use your Google account to post photos and vote on the funniest takes.
         </p>
 
         {message && (

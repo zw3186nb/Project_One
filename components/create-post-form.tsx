@@ -32,9 +32,13 @@ async function shrink(file: File): Promise<Blob> {
   );
 }
 
-type CreatePostFormProps = { userId: string; themeTitle: string; themeHint: string };
+type CreatePostFormProps = {
+  userId: string;
+  /** Set when posting for the daily prompt; null for an open post. */
+  prompt: { title: string; hint: string } | null;
+};
 
-export function CreatePostForm({ userId, themeTitle, themeHint }: CreatePostFormProps) {
+export function CreatePostForm({ userId, prompt }: CreatePostFormProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -140,9 +144,11 @@ export function CreatePostForm({ userId, themeTitle, themeHint }: CreatePostForm
           </span>
           <span className="text-base font-semibold text-white">Choose a photo</span>
           <span className="text-xs text-white/40">or drag one here · JPG, PNG, HEIC from your phone</span>
-          <span className="max-w-xs text-sm text-white/50">
-            Today&apos;s prompt is <span className="text-amber-200">{themeTitle}</span>. {themeHint}
-          </span>
+          {prompt && (
+            <span className="max-w-xs text-sm text-white/50">
+              Today&apos;s prompt is <span className="text-amber-200">{prompt.title}</span>. {prompt.hint}
+            </span>
+          )}
         </button>
       )}
 

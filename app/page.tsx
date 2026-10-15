@@ -69,7 +69,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <p className="mt-2 text-xl font-semibold">{theme.title}</p>
             <p className="mt-1 hidden text-sm text-white/60 sm:block">{theme.hint}</p>
             <Link
-              href={session ? "/create" : "/login"}
+              href={session ? "/create?prompt=today" : "/login"}
               className="mt-3 inline-block text-sm font-semibold text-amber-300 hover:text-amber-200"
             >
               {session ? "Take the prompt →" : "Sign in to take the prompt →"}

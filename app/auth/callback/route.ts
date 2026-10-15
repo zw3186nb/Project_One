@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Google sends the user back here (via Supabase) with a one-time `code`.
  * We trade the code for a session, then decide where the user goes next:
- * new users without a name go to /onboarding, everyone else to /members.
+ * new users without a name go to /onboarding, everyone else to the feed.
  */
 export async function GET(request: NextRequest) {
   const to = (path: string) => NextResponse.redirect(new URL(path, request.url));
@@ -30,5 +30,5 @@ export async function GET(request: NextRequest) {
     await supabase.from("profiles").upsert({ id: user.id, email: user.email ?? null });
   }
 
-  return to(hasName(profile) ? "/members" : "/onboarding");
+  return to(hasName(profile) ? "/" : "/onboarding");
 }

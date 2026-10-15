@@ -8,7 +8,7 @@ export const metadata = { title: "Welcome | Three Takes" };
 /** Shown after login when the profile has no first or last name yet. */
 export default async function OnboardingPage() {
   const { profile } = await requireUser();
-  if (hasName(profile)) redirect("/members");
+  if (hasName(profile)) redirect("/");
 
   return (
     <main className="flex flex-1 items-center justify-center px-6 py-16">

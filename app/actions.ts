@@ -59,7 +59,7 @@ export async function completeOnboarding(
 ): Promise<FormState> {
   const result = await saveNames(formData);
   if (!result?.ok) return result;
-  redirect("/members");
+  redirect("/");
 }
 
 /**
