@@ -18,6 +18,14 @@ export async function GET(request: NextRequest) {
   if (error || !data.user) return to("/login?error=exchange");
 
   const user = data.user;
+
+  // Sign-up rules from the admin area: allowed e-mail domains and whitelisted
+  // addresses. While both lists are empty everyone may join; admins always can.
+  const { data: allowed, error: ruleError } = await supabase.rpc("signup_allowed", { check_email: user.email ?? "" });
+  if (!ruleError && allowed === false) {
+    await supabase.auth.signOut();
+    return to("/login?error=not_allowed");
+  }
   const { data: profile } = await supabase
     .from("profiles")
     .select("first_name, last_name")

@@ -51,12 +51,22 @@ weekends. The three caption voices are the three sides of Sam:
     reads the photo and writes.
   - Photos of any shape sit on a blurred backdrop with a location label;
     loading skeletons; the intended font (Geist) is actually applied now.
+- **Week 8 (prompt chains).** Captions now come from **prompt chains stored in
+  the database** instead of a prompt in the code. Each upload picks an active
+  chain by its mix weight, runs its steps in order, and logs every model call.
+  Prompts can draw on a campus **terms** dictionary and on **examples** of
+  captions students voted funniest. Admins manage all of it in the admin area
+  and edit chains in the Prompt Chain Tool. Sign-ups can be limited to allowed
+  e-mail domains or whitelisted addresses.
 
 ## How it works
 
 1. The browser shrinks the photo and uploads it to Supabase Storage.
-2. A server action sends the photo and prompt to the AI model and gets three
-   captions back.
+2. A server action picks a prompt chain (by its mix weight) and runs its steps:
+   each step sends its prompts (and, if it needs it, the photo) to the AI model,
+   and the last step returns the three captions. Every call is logged in
+   `generation_requests` and `llm_responses`. If no chain is set up, the
+   built-in prompt in `lib/ai.ts` is used.
 3. The post and its captions are saved. The image itself is never stored in
    the database, only its path.
 4. A vote inserts a row into `caption_votes`. A database trigger keeps each
@@ -71,6 +81,11 @@ weekends. The three caption voices are the three sides of Sam:
 | `captions` | AI text, voice, prompt, model, counters | anyone reads; never editable |
 | `caption_votes` | one vote per user per caption | only your own votes |
 | `jokes` | week 2 sample data | read-only |
+| `prompt_chains`, `prompt_chain_steps` | the generation recipes and their mix weights | everyone signed in reads; admins change |
+| `llm_providers`, `llm_models` | which AI services and models steps can use | everyone signed in reads; admins change |
+| `terms`, `generation_examples` | slang dictionary and example captions fed to the AI | everyone signed in reads; admins change |
+| `generation_requests`, `llm_responses` | a log of every generation and model call | you write and read your own; admins read all |
+| `allowed_signup_domains`, `whitelisted_emails` | who may sign up | admins only |
 
 ## Running locally
 

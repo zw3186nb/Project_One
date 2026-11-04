@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateCaptions } from "@/lib/ai";
+import { finishRequest, runChain } from "@/lib/chain-runner";
 import { createClient } from "@/lib/supabase/server";
 import { VOICE_KEYS } from "@/lib/voices";
 
@@ -117,7 +118,7 @@ const NOTE_MAX = 200;
  * Creates a post from a photo the browser already uploaded to Storage:
  * 1. asks the AI for three captions,
  * 2. inserts the post row,
- * 3. inserts one caption row per voice, each with the prompt and model used.
+ * 3. inserts one caption row per voice, each with the prompt, model and prompt chain used.
  * If any step fails, everything made so far is cleaned up.
  */
 export async function createPost(input: { path: string; note: string }): Promise<FormState> {
@@ -144,16 +145,29 @@ export async function createPost(input: { path: string; note: string }): Promise
     return { ok: false, message: "That photo is larger than 5 MB." };
   }
 
-  const generation = await generateCaptions(
-    {
-      base64: Buffer.from(await file.arrayBuffer()).toString("base64"),
-      mimeType: file.type || "image/jpeg",
-    },
-    note,
-  );
-  if (!generation.ok) {
+  const image = { base64: Buffer.from(await file.arrayBuffer()).toString("base64"), mimeType: file.type || "image/jpeg" };
+
+  // The captions come from a prompt chain stored in the database (picked by
+  // its mix weight; see the admin area). If no chain is set up yet, fall back
+  // to the built-in prompt so posting never breaks.
+  const run = await runChain(supabase, { image, note, imagePath: path, source: "app" });
+  let generation: { captions: Record<(typeof VOICE_KEYS)[number], string>; reading: { location: string; scene: string; funniestDetail: string }; prompt: string; model: string };
+  let chainId: number | null = null;
+  let requestId: number | null = null;
+  if (run.ok) {
+    generation = { captions: run.takes.captions, reading: run.takes.reading, prompt: run.finalPrompt, model: run.modelLabel };
+    chainId = run.chain.id;
+    requestId = run.requestId;
+  } else if (run.chainMissing) {
+    const legacy = await generateCaptions(image, note);
+    if (!legacy.ok) {
+      await discardPhoto();
+      return { ok: false, message: legacy.message };
+    }
+    generation = legacy;
+  } else {
     await discardPhoto();
-    return { ok: false, message: generation.message };
+    return { ok: false, message: run.message };
   }
 
   const { reading } = generation;
@@ -173,6 +187,7 @@ export async function createPost(input: { path: string; note: string }): Promise
     .select("id")
     .single();
   if (postError || !post) {
+    await finishRequest(supabase, requestId, { status: "failed", error: postError?.message ?? "Could not save the post." });
     await discardPhoto();
     return { ok: false, message: postError?.message ?? "Could not save the post." };
   }
@@ -184,13 +199,16 @@ export async function createPost(input: { path: string; note: string }): Promise
       content: generation.captions[voice],
       prompt: generation.prompt,
       model: generation.model,
+      ...(chainId ? { chain_id: chainId, request_id: requestId } : {}),
     })),
   );
   if (captionError) {
+    await finishRequest(supabase, requestId, { status: "failed", error: captionError.message });
     await supabase.from("posts").delete().eq("id", post.id);
     await discardPhoto();
     return { ok: false, message: `Could not save the captions: ${captionError.message}` };
   }
+  await finishRequest(supabase, requestId, { status: "done", postId: post.id });
 
   redirect(`/p/${post.id}`);
 }

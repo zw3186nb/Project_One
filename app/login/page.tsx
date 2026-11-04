@@ -8,6 +8,7 @@ export const metadata = { title: "Sign in | Three Takes" };
 const ERRORS: Record<string, string> = {
   cancelled: "Sign-in was cancelled or the link expired. Please try again.",
   exchange: "Google sign-in could not be completed. Please try again.",
+  not_allowed: "Three Takes is open to invited schools and addresses only, and this Google account isn't on the list yet.",
 };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
